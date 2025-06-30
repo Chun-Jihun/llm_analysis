@@ -76,9 +76,12 @@ class FinalReport(BaseModel):
 @st.cache_resource
 def get_llm():
     """LLM 모델을 캐시하여 재로딩을 방지합니다."""
-    API_KEY = os.getenv("GEMINI_API_KEY")
+    # Streamlit Community Cloud의 Secrets에서 API 키를 가져오도록 수정
+    # 로컬 테스트 시에는 기존 .env 방식도 작동하도록 or 연산자 사용
+    API_KEY = os.getenv("GEMINI_API_KEY") or st.secrets["GEMINI_API_KEY"]
+    
     if not API_KEY:
-        st.error("GEMINI_API_KEY가 설정되지 않았습니다. .env 파일을 확인해주세요.")
+        st.error("GEMINI_API_KEY가 설정되지 않았습니다. .env 파일 또는 Streamlit Secrets를 확인해주세요.")
         st.stop()
     
     return ChatGoogleGenerativeAI(
