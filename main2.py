@@ -271,7 +271,7 @@ if review_type_map[selected_review_type] is not None:
 # --- 4. 대시보드 UI 구성 ---
 
 # 수정: title에서 이모지 제거
-st.title("게임 인텔리전스 대시보드")
+st.title("인공지능 게임 분석 대시보드")
 st.markdown(f"**분석 기간:** `{df_original['timestamp_created'].min().date()}` ~ `{df_original['timestamp_created'].max().date()}` | **총 리뷰:** `{len(df_original)}`개 | **필터된 리뷰:** `{len(df_filtered)}`개")
 
 # 수정: tabs에서 이모지 및 마크다운 제거
