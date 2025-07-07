@@ -546,8 +546,7 @@ with tab1:
                     st.info(f"{report.get('ab_test_suggestion', 'N/A')}")
         else:
             st.error("최종 보고서 생성에 실패했습니다.")
-    else:
-        st.error("일부 리포트 생성에 실패하여 최종 분석을 진행할 수 없습니다.")
+
 
 with tab2:
     # 수정: header에서 이모지 제거
