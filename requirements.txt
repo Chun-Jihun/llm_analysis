@@ -4,3 +4,4 @@ plotly-express
 python-dotenv
 langchain-google-genai
 langchain
+FPDF

@@ -8,6 +8,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.pydantic_v1 import BaseModel, Field
 from typing import List, Dict
+from fpdf import FPDF
 
 # --- 0. 환경 설정 및 페이지 구성 ---
 st.set_page_config(
