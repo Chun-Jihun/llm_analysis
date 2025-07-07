@@ -227,7 +227,9 @@ if __name__ == "__main__":
                     df['playtime_last_two_weeks_hours'] = (df['playtime_last_two_weeks_minutes'] / 60).round(1)
 
                 limit_suffix = f"_limit{MAX_REVIEWS_TO_FETCH}" if MAX_REVIEWS_TO_FETCH is not None else "_all"
-                csv_filename = f'steam_reviews_{target_app_id}_{selected_language}{limit_suffix}_unique.csv' # 파일명에 unique 추가
+                import datetime
+                today = datetime.date.today()
+                csv_filename = f'steam_reviews_{today.strftime("%y%m%d")}.csv' # 파일명에 unique 추가
                 try:
                     df.to_csv(csv_filename, index=False, encoding='utf-8-sig')
                     print(f"\n고유한 리뷰 데이터를 '{csv_filename}' 파일로 성공적으로 저장했습니다.")

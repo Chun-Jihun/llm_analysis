@@ -431,7 +431,7 @@ def load_and_preprocess_data(file_path):
     return df
 
 # 데이터 로딩 함수 호출 (이 부분은 기존과 동일)
-df_original = load_and_preprocess_data('steam_reviews_3430470_korean_limit600_unique.csv')
+df_original = load_and_preprocess_data('steam_reviews_250707.csv')
 
 st.sidebar.header("상세 필터")
 
@@ -726,8 +726,8 @@ with tab2:
         st.warning("상관관계 분석을 위해서는 2개 이상의 데이터가 필요합니다.")
 
 with tab3:
-    st.header("소수 의견 심층 분석")
-    st.markdown("다수의 목소리에 가려진 중요한 인사이트를 담은 소수 의견을 발굴합니다.")
+    st.header("소수 의견 분석")
+    st.markdown("소수 의견을 분석합니다.")
 
     if st.button("소수 의견 분석 실행하기", key="minority_analysis_button"):
         if 'reviews_for_analysis' in st.session_state:
