@@ -437,48 +437,60 @@ df_original = load_and_preprocess_data('steam_reviews_3430470_korean_limit600_un
 # --- 5. 사이드바 UI (필터 전면 개편) ---
 st.sidebar.header("상세 필터")
 
-# 1. session_state에 필터 기본값 초기화
+# 1. session_state에 두 종류의 필터 상태를 초기화
 if 'applied_filters' not in st.session_state:
-    st.session_state.applied_filters = {
-        "playtime": [],
-        "version": [],
-        "review_count": []
-    }
+    # 데이터에 실제 적용되어 있는 필터
+    st.session_state.applied_filters = {"playtime": [], "version": [], "review_count": []}
+if 'staged_filters' not in st.session_state:
+    # 사용자가 UI에서 선택하고 있는 임시 필터
+    st.session_state.staged_filters = {"playtime": [], "version": [], "review_count": []}
 
-# 2. 다중 선택 위젯 생성 (기본 선택값은 session_state에서 가져옴)
+# 2. 다중 선택 위젯은 '선택 중인 필터(staged_filters)'와 연결
 playtime_options = df_original['playtime_bin'].cat.categories.tolist()
 selected_playtime = st.sidebar.multiselect(
     "플레이 시간 구간 (다중 선택 가능)", 
     options=playtime_options, 
-    default=st.session_state.applied_filters["playtime"]
+    default=st.session_state.staged_filters["playtime"], # staged_filters 사용
+    placeholder="전체"
 )
 
 version_options = df_original['version'].unique().tolist()
 selected_version = st.sidebar.multiselect(
     "리뷰 작성 시점 (버전, 다중 선택 가능)", 
     options=version_options,
-    default=st.session_state.applied_filters["version"]
+    default=st.session_state.staged_filters["version"], # staged_filters 사용
+    placeholder="전체"
 )
 
 review_count_options = df_original['review_count_bin'].cat.categories.tolist()
 selected_review_count = st.sidebar.multiselect(
     "유저의 리뷰 활동성 (다중 선택 가능)", 
     options=review_count_options,
-    default=st.session_state.applied_filters["review_count"]
+    default=st.session_state.staged_filters["review_count"], # staged_filters 사용
+    placeholder="전체"
 )
 
-# 3. '필터 적용' 버튼을 누르면, 선택된 값들을 session_state에 저장
-if st.sidebar.button("필터 적용"):
-    st.session_state.applied_filters["playtime"] = selected_playtime
-    st.session_state.applied_filters["version"] = selected_version
-    st.session_state.applied_filters["review_count"] = selected_review_count
-    # st.rerun()을 호출하지 않아도, 버튼 클릭 시 자동으로 스크립트가 재실행됨
+# 3. 버튼 로직 수정
+col1, col2 = st.sidebar.columns(2)
 
-# 4. 항상 session_state에 저장된 '적용된 필터'를 기준으로 데이터 필터링
+with col1:
+    if st.button("필터 적용"):
+        # '적용' 버튼을 누르면, 선택 중인 필터를 실제 적용 필터로 복사
+        st.session_state.staged_filters["playtime"] = selected_playtime
+        st.session_state.staged_filters["version"] = selected_version
+        st.session_state.staged_filters["review_count"] = selected_review_count
+        st.session_state.applied_filters = st.session_state.staged_filters.copy()
+        
+with col2:
+    if st.button("초기화"):
+        # '초기화' 버튼은 UI에 연결된 '선택 중인 필터'만 비움
+        # 실제 적용된 필터(applied_filters)는 건드리지 않음
+        st.session_state.staged_filters = {"playtime": [], "version": [], "review_count": []}
+
+# 4. 데이터 필터링은 항상 '적용된 필터(applied_filters)'를 기준으로 수행
 df_filtered = df_original.copy()
-applied_filters = st.session_state.applied_filters
+applied_filters = st.session_state.applied_filters # applied_filters 사용
 
-# 각 필터에 대해 선택된 값이 있을 경우에만 필터링 수행 (선택이 없으면 전체 데이터)
 if applied_filters["playtime"]:
     df_filtered = df_filtered[df_filtered['playtime_bin'].isin(applied_filters["playtime"])]
 if applied_filters["version"]:
