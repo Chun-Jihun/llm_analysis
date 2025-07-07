@@ -9,6 +9,14 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.pydantic_v1 import BaseModel, Field
 from typing import List, Dict
 from fpdf import FPDF
+import warnings
+
+# FPDF 라이브러리에서 발생하는 경고를 무시하도록 설정
+warnings.filterwarnings(
+    "ignore", 
+    message="cmap value too big/small", 
+    category=UserWarning
+)
 
 # --- 0. 환경 설정 및 페이지 구성 ---
 st.set_page_config(
@@ -274,9 +282,13 @@ def run_final_synthesis(expert_reports: Dict):
 # --- 3. PDF 생성 함수 ---
 
 class PDF(FPDF):
-    # __init__ 메서드는 super()만 호출하도록 단순화하거나 삭제합니다.
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # [수정] 폰트 파일이 프로젝트 폴더에 있음을 가정하고, 초기에 모두 등록
+        self.add_font('NanumGothic', '', 'NanumGothic.ttf', uni=True)
+        self.add_font('NanumGothic', 'B', 'NanumGothicBold.ttf', uni=True)
+
     def header(self):
-        # set_font 호출 전 폰트가 등록될 것이므로 이 부분은 그대로 둡니다.
         self.set_font('NanumGothic', 'B', 15)
         self.cell(0, 10, '인공지능 게임 분석 종합 보고서', 0, 1, 'C')
         self.ln(10)
@@ -296,11 +308,11 @@ class PDF(FPDF):
         self.multi_cell(0, 6, str(body))
         self.ln()
 
-    def add_list_items(self, items: list):
+    def add_list_items(self, items: list, prefix="  - "):
         self.set_font('NanumGothic', '', 10)
         for item in items:
-            self.multi_cell(0, 6, f"  - {item}")
-        self.ln()
+            self.multi_cell(0, 6, f"{prefix}{item}")
+        self.ln(1)
     
     def add_sub_section_title(self, title):
         self.set_font('NanumGothic', 'B', 11)
@@ -310,20 +322,7 @@ class PDF(FPDF):
 def create_pdf_report(report_data):
     pdf = PDF()
     
-    # [해결] PDF 생성 로직의 시작 부분에 명시적으로 폰트 등록 및 오류 처리 로직 추가
-    try:
-        pdf.add_font('NanumGothic', '', 'NanumGothic.ttf', uni=True)
-        pdf.add_font('NanumGothic', 'B', 'NanumGothicBold.ttf', uni=True)
-    except Exception as e:
-        # 폰트 파일 자체를 로드할 수 없을 때 에러 메시지를 화면에 직접 표시
-        st.error(f"""
-        PDF 폰트 파일을 로딩하는 데 실패했습니다. 
-        GitHub 저장소에 'NanumGothic.ttf'와 'NanumGothicBold.ttf' 파일이 정확한 이름으로 존재하는지 다시 한번 확인해주세요.
-        - 발생 오류: {e}
-        """)
-        return None # PDF 생성을 중단
-
-    # --- 이하 PDF 내용 구성 로직은 동일 ---
+    # 1. 최종 결론
     final_report = report_data.get('final')
     if final_report:
         pdf.add_page()
@@ -332,12 +331,72 @@ def create_pdf_report(report_data):
         
         pdf.chapter_title("2. Top 3 강점")
         pdf.add_list_items(final_report.get('top_3_strengths', []))
-        # (이하 생략)
-            
+        
+        pdf.chapter_title("3. Top 3 개선 과제")
+        pdf.add_list_items(final_report.get('top_3_priorities', []))
+        
+        pdf.chapter_title("4. 주요 결정 필요 사안")
+        pdf.add_list_items(final_report.get('decision_points', []))
+
+    # 2. 정성 리뷰 분석
+    qualitative_report = report_data.get('qualitative')
+    if qualitative_report:
+        pdf.add_page()
+        pdf.chapter_title("5. 정성 리뷰 분석 (텍스트 마이닝)")
+        for cluster in qualitative_report.get('keyword_clusters', []):
+            pdf.add_sub_section_title(f"테마: {cluster.get('theme', 'N/A')} (감성: {cluster.get('sentiment', 'N/A')})")
+            pdf.chapter_body(f"주요 키워드: {', '.join(cluster.get('keywords', []))}")
+            pdf.add_list_items(cluster.get('review_examples', []), prefix="    - 예시 리뷰: ")
+            pdf.ln(3)
+        pdf.add_sub_section_title("새롭게 등장하는 이슈")
+        pdf.add_list_items(qualitative_report.get('emerging_issues', []))
+
+    # 3. 전략 분석
+    strategic_report = report_data.get('strategic')
+    if strategic_report:
+        pdf.add_page()
+        pdf.chapter_title("6. 강점 및 개선 우선순위 (전략 분석)")
+        pdf.add_sub_section_title("핵심 강점")
+        pdf.add_list_items(strategic_report.get('core_strengths', []))
+        pdf.ln(5)
+        pdf.add_sub_section_title("개선 우선순위")
+        for priority in strategic_report.get('strategic_priorities', []):
+            pdf.set_font('NanumGothic', '', 10)
+            pdf.multi_cell(0, 6, f"  - 이슈: {priority.get('issue', 'N/A')} (예상 ROI: {priority.get('expected_roi', 'N/A')})")
+            pdf.multi_cell(0, 6, f"    영향 분석: {priority.get('impact_analysis', 'N/A')}")
+            pdf.multi_cell(0, 6, f"    개선 제안: {priority.get('recommendation', 'N/A')}")
+            pdf.ln(2)
+
+    # 4. 유저 세그먼트 분석
+    segmentation_report = report_data.get('segmentation')
+    if segmentation_report:
+        pdf.add_page()
+        pdf.chapter_title("7. 유저 세그먼트 분석")
+        for segment in segmentation_report.get('user_segments', []):
+            pdf.add_sub_section_title(f"세그먼트: {segment.get('segment_name', 'N/A')}")
+            pdf.chapter_body(f"특징: {segment.get('characteristics', 'N/A')}")
+            pdf.chapter_body(f"주요 피드백: {segment.get('feedback_summary', 'N/A')}")
+            pdf.ln(3)
+
+    # 5. 미래 전략 및 신규 기능 제안
+    future_report = report_data.get('future')
+    if future_report:
+        pdf.add_page()
+        pdf.chapter_title("8. 향후 콘텐츠 및 전략 제안")
+        pdf.add_sub_section_title("장기 로드맵 제안")
+        for proposal in future_report.get('proposals', []):
+            pdf.chapter_body(f"[{proposal.get('timeframe', 'N/A')}] {proposal.get('proposal_type', 'N/A')}: {proposal.get('description', 'N/A')}")
+        pdf.ln(5)
+        pdf.add_sub_section_title("신규 콘텐츠/기능 도입 제안")
+        for feature in future_report.get('suggested_new_features', []):
+            pdf.set_font('NanumGothic', '', 10)
+            pdf.multi_cell(0, 6, f"  - 제안: {feature.get('feature_name', 'N/A')}")
+            pdf.multi_cell(0, 6, f"    설명: {feature.get('description', 'N/A')}")
+            pdf.multi_cell(0, 6, f"    기대 효과: {feature.get('expected_impact', 'N/A')}")
+            pdf.ln(2)
+
     return pdf.output(dest='S').encode('latin-1')
 
-# --- 2. 데이터 로딩 및 전처리 ---
-# --- 4. 데이터 로딩 및 필터링 로직 ---
 
 @st.cache_data
 def load_and_preprocess_data(file_path):
@@ -437,40 +496,32 @@ with tab1:
             
             with st.spinner("AI가 분석을 시작합니다... (최대 1-2분 소요)"):
                 expert_reports = {}
-                
                 with st.status("1/4: 텍스트 마이닝 및 UX 분석 중...", expanded=True) as status:
                     expert_reports['qualitative'] = run_expert_analysis(
                         reviews_for_analysis, qualitative_prompt, QualitativeReport
                     )
-                    
-                    st.write("정성 리뷰 분석 완료.")
-                    status.update(label="텍스트 마이닝/UX 분석 완료!", state="complete", expanded=False)
-
+                    status.update(label="완료!", state="complete", expanded=False)
                 with st.status("2/4: ROI 기반 전략 분석 중...", expanded=True) as status:
                     expert_reports['strategic'] = run_expert_analysis(
                         reviews_for_analysis, strategic_prompt, StrengthAnalysis
                     )
-                    st.write("전략 분석 완료.")
-                    status.update(label="ROI 전략 분석 완료!", state="complete", expanded=False)
-
+                    status.update(label="완료!", state="complete", expanded=False)
                 with st.status("3/4: 유저 세그먼트 분석 중...", expanded=True) as status:
                     expert_reports['segmentation'] = run_expert_analysis(
                         reviews_for_analysis, segmentation_prompt, SegmentationReport
                     )
-                    st.write("유저 세그먼트 분석 완료.")
-                    status.update(label="유저 세그먼트 분석 완료!", state="complete", expanded=False)
-                    
+                    status.update(label="완료!", state="complete", expanded=False)
                 with st.status("4/4: 미래 전략 및 콘텐츠 제안 중...", expanded=True) as status:
                     expert_reports['future'] = run_expert_analysis(
                         reviews_for_analysis, future_strategy_prompt, FutureStrategyReport
                     )
-                    st.write("미래 전략 제안 완료.")
-                    status.update(label="미래 전략/콘텐츠 제안 완료!", state="complete", expanded=False)
-
+                    status.update(label="완료!", state="complete", expanded=False)
+                    
                 synthesis_reports = {k: v for k, v in expert_reports.items()}
-                if all(report is not None for report in expert_reports.values()):
+                if all(report is not None for report in synthesis_reports.values()):
                     with st.spinner("최종 보고서 종합 중..."):
-                        final_report = run_final_synthesis(expert_reports)
+                        final_report = run_final_synthesis(synthesis_reports)
+                        # 모든 분석 결과를 session_state에 저장
                         st.session_state['analysis_report'] = {**expert_reports, 'final': final_report}
                         st.session_state['analysis_complete'] = True
                 else:
@@ -479,88 +530,100 @@ with tab1:
         else:
             st.warning("분석할 리뷰가 없습니다. 필터를 조정해주세요.")
 
-        if st.session_state.get('analysis_complete', False):
-            report_data = st.session_state.get('analysis_report', {})
-            final_report = report_data.get('final')
+    if st.session_state.get('analysis_complete', False):
+        report_data = st.session_state.get('analysis_report', {})
+        final_report = report_data.get('final')
+        
+        if final_report:
+            st.subheader("최종 결론 (Executive Summary)")
+            st.info(final_report.get('executive_summary', '요약 정보 없음'))
             
-            if final_report:
-                st.subheader("최종 결론 (Executive Summary)")
-                st.info(final_report.get('executive_summary', '요약 정보 없음'))
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    # 수정: markdown에서 이모지 제거
-                    st.markdown("#### Top 3 강점")
-                    for strength in final_report['top_3_strengths']:
-                        st.success(f"- {strength}")
-                with col2:
-                    # 수정: markdown에서 이모지 제거
-                    st.markdown("#### Top 3 개선 과제")
-                    for priority in final_report['top_3_priorities']:
-                        st.warning(f"- {priority}")
-                
+            col1, col2 = st.columns(2)
+            with col1:
                 # 수정: markdown에서 이모지 제거
-                st.markdown("#### 주요 결정 필요 사안 (Decision Points)")
-                for dp in final_report['decision_points']:
-                    st.error(f"- {dp}")
-                
-                st.markdown("---")
-                # 수정: header에서 이모지 제거
-                st.header("각 분야 별 상세 분석 결과")
+                st.markdown("#### Top 3 강점")
+                for strength in final_report['top_3_strengths']:
+                    st.success(f"- {strength}")
+            with col2:
+                # 수정: markdown에서 이모지 제거
+                st.markdown("#### Top 3 개선 과제")
+                for priority in final_report['top_3_priorities']:
+                    st.warning(f"- {priority}")
+            
+            # 수정: markdown에서 이모지 제거
+            st.markdown("#### 주요 결정 필요 사안 (Decision Points)")
+            for dp in final_report['decision_points']:
+                st.error(f"- {dp}")
+            
+            st.markdown("---")
+            # 수정: header에서 이모지 제거
+            st.header("각 분야 별 상세 분석 결과")
 
-                with st.expander("1. 정성 리뷰 분석 보고서 (텍스트 마이닝)"):
-                    report = expert_reports['qualitative']
-                    if report:
-                        for cluster in report.get('keyword_clusters', []):
-                            st.markdown(f"**- 테마:** {cluster.get('theme', 'N/A')} (**감성:** {cluster.get('sentiment', 'N/A')})")
-                            st.caption(f"**주요 키워드:** {', '.join(cluster.get('keywords', []))}")
-                            with st.container(border=True):
-                                for example in cluster.get('review_examples', []):
-                                    st.write(f"> {example}")
-                        # 수정: markdown에서 이모지 제거
-                        st.markdown(f"**새로운 이슈:** {', '.join(report.get('emerging_issues', []))}")
+            with st.expander("1. 정성 리뷰 분석 보고서 (텍스트 마이닝)"):
+                report = report_data.get('qualitative')
+                if report:
+                    for cluster in report.get('keyword_clusters', []):
+                        st.markdown(f"**- 테마:** {cluster.get('theme', 'N/A')} (**감성:** {cluster.get('sentiment', 'N/A')})")
+                        st.caption(f"**주요 키워드:** {', '.join(cluster.get('keywords', []))}")
+                        with st.container(border=True):
+                            for example in cluster.get('review_examples', []):
+                                st.write(f"> {example}")
+                    # 수정: markdown에서 이모지 제거
+                    st.markdown(f"**새로운 이슈:** {', '.join(report.get('emerging_issues', []))}")
 
-                with st.expander("2. 강점 및 개선 우선순위 보고서 (전략 분석)"):
-                    report = expert_reports['strategic']
-                    if report:
+            with st.expander("2. 강점 및 개선 우선순위 보고서 (전략 분석)"):
+                report = report_data.get('strategic')
+                if report:
+                    # 수정: markdown에서 이모지 제거
+                    st.markdown("#### 핵심 강점")
+                    for strength in report.get('core_strengths', []):
+                        st.markdown(f"- {strength}")
+                    # 수정: markdown에서 이모지 제거
+                    st.markdown("#### 개선 우선순위")
+                    for priority in report.get('strategic_priorities', []):
+                        st.markdown(f"**- 이슈:** {priority.get('issue', 'N/A')} (**예상 ROI:** {priority.get('expected_roi', 'N/A')})")
+                        st.caption(f"**영향 분석:** {priority.get('impact_analysis', 'N/A')}")
+                        st.caption(f"**개선 제안:** {priority.get('recommendation', 'N/A')}")
+            
+            with st.expander("3. 유저 세그먼트별 분석 보고서"):
+                report = report_data.get('segmentation')
+                if report:
+                    for segment in report.get('user_segments', []):
                         # 수정: markdown에서 이모지 제거
-                        st.markdown("#### 핵심 강점")
-                        for strength in report.get('core_strengths', []):
-                            st.markdown(f"- {strength}")
-                        # 수정: markdown에서 이모지 제거
-                        st.markdown("#### 개선 우선순위")
-                        for priority in report.get('strategic_priorities', []):
-                            st.markdown(f"**- 이슈:** {priority.get('issue', 'N/A')} (**예상 ROI:** {priority.get('expected_roi', 'N/A')})")
-                            st.caption(f"**영향 분석:** {priority.get('impact_analysis', 'N/A')}")
-                            st.caption(f"**개선 제안:** {priority.get('recommendation', 'N/A')}")
-                
-                with st.expander("3. 유저 세그먼트별 분석 보고서"):
-                    report = expert_reports['segmentation']
-                    if report:
-                        for segment in report.get('user_segments', []):
-                            # 수정: markdown에서 이모지 제거
-                            st.markdown(f"#### {segment.get('segment_name', 'N/A')}")
-                            st.write(f"**특징:** {segment.get('characteristics', 'N/A')}")
-                            st.write(f"**주요 피드백:** {segment.get('feedback_summary', 'N/A')}")
+                        st.markdown(f"#### {segment.get('segment_name', 'N/A')}")
+                        st.write(f"**특징:** {segment.get('characteristics', 'N/A')}")
+                        st.write(f"**주요 피드백:** {segment.get('feedback_summary', 'N/A')}")
 
-                with st.expander("4. 향후 콘텐츠 및 전략 제안 보고서"):
-                    report = expert_reports['future']
-                    if report:
-                        for proposal in report.get('proposals', []):
-                            st.markdown(f"**- [{proposal.get('timeframe', 'N/A')}] {proposal.get('proposal_type', 'N/A')}:** {proposal.get('description', 'N/A')}")
-                            st.caption(f"**제안 근거:** {proposal.get('rationale', 'N/A')}")
-                        st.markdown("---")
-                        # 수정: markdown에서 이모지 제거
-                        pdf_data = create_pdf_report(report_data)
-                        if pdf_data:
-                            st.download_button(
-                                label="분석 리포트 PDF로 저장",
-                                data=pdf_data,
-                                file_name="ai_game_analysis_report.pdf",
-                                mime="application/pdf"
-                            )
-            else:
-                st.error("최종 보고서 생성에 실패했습니다.")
+            with st.expander("4. 향후 콘텐츠 및 전략 제안 보고서"):
+                report = report_data.get('future')
+                if report:
+                    for proposal in report.get('proposals', []):
+                        st.markdown(f"**- [{proposal.get('timeframe', 'N/A')}] {proposal.get('proposal_type', 'N/A')}:** {proposal.get('description', 'N/A')}")
+                        st.caption(f"**제안 근거:** {proposal.get('rationale', 'N/A')}")
+                    st.markdown("---")
+            
+            st.divider() # 버튼과 내용 구분
+            
+            pdf_data = create_pdf_report(report_data)
+            st.download_button(
+                label="전체 분석 리포트 PDF로 저장",
+                data=pdf_data,
+                file_name="ai_game_analysis_report.pdf",
+                mime="application/pdf",
+                help="현재까지 분석된 모든 내용을 PDF 파일 하나로 저장합니다."
+            )
+
+                    # 수정: markdown에서 이모지 제거
+                    # pdf_data = create_pdf_report(report_data)
+                    # if pdf_data:
+                    #     st.download_button(
+                    #         label="분석 리포트 PDF로 저장",
+                    #         data=pdf_data,
+                    #         file_name="ai_game_analysis_report.pdf",
+                    #         mime="application/pdf"
+                    #     )
+        else:
+            st.error("최종 보고서 생성에 실패했습니다.")
 
 
 with tab2:
