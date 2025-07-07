@@ -352,16 +352,28 @@ def load_and_preprocess_data(file_path):
         return "알 수 없음"
     df['version'] = df['timestamp_created'].apply(get_version)
     
-    # --- 플레이 시간 및 리뷰 수 구간(Bin) 생성 ---
+    # --- 플레이 시간 및 리뷰 수 구간(Bin) 생성 (수정된 로직) ---
     max_playtime = int(df['playtime_forever_hours'].max())
-    df['playtime_bin'] = pd.cut(df['playtime_forever_hours'], bins=range(0, max_playtime + 6, 5), right=False, labels=[f'{i}-{i+5}시간' for i in range(0, max_playtime + 5, 5)])
     
+    # [수정 1] 플레이 시간 구간 생성 로직을 더 명확하게 변경
+    if max_playtime > 0:
+        # 1. 구간의 경계를 명시적으로 생성
+        bin_edges = list(range(0, max_playtime + 6, 5))
+        # 2. 생성된 경계에 맞춰 정확한 개수의 라벨을 생성 (라벨 길이 = 경계 길이 - 1)
+        labels = [f'{bin_edges[i]} - {bin_edges[i+1] - 1}시간' for i in range(len(bin_edges) - 1)]
+        df['playtime_bin'] = pd.cut(df['playtime_forever_hours'], bins=bin_edges, right=False, labels=labels)
+    else:
+        df['playtime_bin'] = '0-4시간' # 플레이 시간이 0인 경우 대비
+
+    # [수정 2] 리뷰 작성 수 구간 생성 시 right=True 옵션으로 논리 오류 수정
     review_count_bins = [0, 1, 5, 10, 50, float('inf')]
     review_count_labels = ['첫 리뷰어 (1개)', '가끔 작성 (2-5개)', '나름 활발 (6-10개)', '리뷰 전문가 (11-50개)', '매우 전문적 (51개 이상)']
+    # right=True는 (0, 1], (1, 5] 와 같은 구간을 의미하며, 이 경우가 의도에 맞음
     df['review_count_bin'] = pd.cut(df['num_reviews_by_author'], bins=review_count_bins, right=True, labels=review_count_labels)
     
     return df
 
+# 데이터 로딩 함수 호출 (이 부분은 기존과 동일)
 df_original = load_and_preprocess_data('steam_reviews_3430470_korean_limit600_unique.csv')
 
 
