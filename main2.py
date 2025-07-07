@@ -526,7 +526,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 
 with tab1:
     # 수정: header에서 이모지 제거
-    st.header("AI 종합 분석 (Multi-Agent AI Analysis)")
+    st.header("AI 종합 분석")
     st.markdown("AI가 리뷰를 분석하고, 인사이트를 도출합니다.")
 
     # 수정: button에서 이모지 제거
@@ -577,7 +577,7 @@ with tab1:
         final_report = report_data.get('final')
         
         if final_report:
-            st.subheader("최종 결론 (Executive Summary)")
+            st.subheader("최종 결론")
             st.info(final_report.get('executive_summary', '요약 정보 없음'))
             
             col1, col2 = st.columns(2)
@@ -593,7 +593,7 @@ with tab1:
                     st.warning(f"- {priority}")
             
             # 수정: markdown에서 이모지 제거
-            st.markdown("#### 주요 결정 필요 사안 (Decision Points)")
+            st.markdown("#### 중요 주목 사안")
             for dp in final_report['decision_points']:
                 st.error(f"- {dp}")
             
@@ -670,10 +670,10 @@ with tab1:
 
 with tab2:
     # 수정: header에서 이모지 제거
-    st.header("데이터 기반 현황 (Statistical Analysis)")
+    st.header("데이터 기반 통계")
     st.info("""
     **분석 개요:** 이 탭은 제공된 리뷰 데이터를 기반으로 한 통계 분석 결과를 보여줍니다. 
-    DAU, ARPU와 같은 운영 지표는 리뷰 데이터만으로 산출할 수 없으므로, 대신 리뷰어의 행동 패턴과 데이터 간의 관계를 심층적으로 분석합니다.
+    특정 운영 지표는 리뷰 데이터만으로 산출할 수 없으므로, 대신 리뷰어의 행동 패턴과 데이터 간의 관계를 심층적으로 분석합니다.
     """)
     st.subheader("1. 리뷰 기본 통계")
     col1, col2, col3, col4 = st.columns(4)
@@ -715,7 +715,7 @@ with tab2:
         else:
             st.warning("분석할 데이터가 없습니다.")
     st.markdown("---")
-    st.subheader("4. 주요 지표 간 상관관계 분석 (Correlation Analysis)")
+    st.subheader("4. 주요 지표 간 상관관계 분석")
     if len(df_filtered) > 1:
         numerical_cols = ['playtime_forever_hours', 'votes_up', 'num_games_owned', 'num_reviews_by_author']
         corr_matrix = df_filtered[numerical_cols].corr()
