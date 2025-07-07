@@ -66,7 +66,7 @@ class FutureStrategyReport(BaseModel):
 
 # 1.2. 최종 보고서를 위한 Pydantic 모델
 class FinalReport(BaseModel):
-    """수석 분석가의 최종 종합 보고서"""
+    """인공지능 분석가의 최종 종합 보고서"""
     executive_summary: str = Field(description="경영진 및 핵심 의사결정자를 위한 보고서의 핵심 요약. 현재 상황, 가장 시급한 과제, 그리고 가장 큰 기회를 요약합니다.")
     top_3_strengths: List[str] = Field(description="모든 분석을 종합했을 때, 우리 게임이 가진 가장 중요한 강점 3가지")
     top_3_priorities: List[str] = Field(description="다음 분기에 가장 먼저 해결해야 할 가장 중요한 과제 3가지")
@@ -323,7 +323,7 @@ with tab1:
                     status.update(label="미래 전략/콘텐츠 제안 완료!", state="complete", expanded=False)
 
                 if all(report is not None for report in expert_reports.values()):
-                    with st.spinner("수석 분석가가 모든 보고서를 취합하여 최종 결론을 도출합니다..."):
+                    with st.spinner("인공지능 분석가가 모든 보고서를 취합하여 최종 결론을 도출합니다..."):
                         final_report = run_final_synthesis(expert_reports)
 
                     if final_report:
