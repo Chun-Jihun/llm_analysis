@@ -433,63 +433,73 @@ def load_and_preprocess_data(file_path):
 # 데이터 로딩 함수 호출 (이 부분은 기존과 동일)
 df_original = load_and_preprocess_data('steam_reviews_3430470_korean_limit600_unique.csv')
 
-
-# --- 5. 사이드바 UI (필터 전면 개편) ---
 st.sidebar.header("상세 필터")
 
-# 1. session_state에 두 종류의 필터 상태를 초기화
-if 'applied_filters' not in st.session_state:
-    # 데이터에 실제 적용되어 있는 필터
-    st.session_state.applied_filters = {"playtime": [], "version": [], "review_count": []}
-if 'staged_filters' not in st.session_state:
-    # 사용자가 UI에서 선택하고 있는 임시 필터
-    st.session_state.staged_filters = {"playtime": [], "version": [], "review_count": []}
+# --- [최종 수정] 콜백 함수를 이용한 상태 관리 로직 ---
 
-# 2. 다중 선택 위젯은 '선택 중인 필터(staged_filters)'와 연결
+# 1. 콜백 함수 정의
+def apply_filters():
+    """'적용' 버튼 클릭 시, 위젯의 현재 상태를 applied_filters에 복사하는 함수"""
+    st.session_state.applied_filters["playtime"] = st.session_state.playtime_widget_key
+    st.session_state.applied_filters["version"] = st.session_state.version_widget_key
+    st.session_state.applied_filters["review_count"] = st.session_state.review_count_widget_key
+
+def reset_filters():
+    """'초기화' 버튼 클릭 시, 모든 필터 상태를 비우는 함수"""
+    # 위젯의 key와 연결된 상태를 직접 초기화
+    st.session_state.playtime_widget_key = []
+    st.session_state.version_widget_key = []
+    st.session_state.review_count_widget_key = []
+    # 데이터 필터링에 사용되는 상태도 함께 초기화
+    st.session_state.applied_filters = {"playtime": [], "version": [], "review_count": []}
+
+# 2. session_state에 필터 상태 초기화 (처음 한 번만 실행됨)
+if 'applied_filters' not in st.session_state:
+    st.session_state.applied_filters = {"playtime": [], "version": [], "review_count": []}
+# 각 위젯의 상태를 위한 key 초기화
+if 'playtime_widget_key' not in st.session_state:
+    st.session_state.playtime_widget_key = []
+if 'version_widget_key' not in st.session_state:
+    st.session_state.version_widget_key = []
+if 'review_count_widget_key' not in st.session_state:
+    st.session_state.review_count_widget_key = []
+
+# 3. 다중 선택 위젯에 고유한 key 부여
 playtime_options = df_original['playtime_bin'].cat.categories.tolist()
-selected_playtime = st.sidebar.multiselect(
-    "플레이 시간 구간 (다중 선택 가능)", 
-    options=playtime_options, 
-    default=st.session_state.staged_filters["playtime"], # staged_filters 사용
+st.sidebar.multiselect(
+    "플레이 시간 구간 (다중 선택 가능)",
+    options=playtime_options,
+    key="playtime_widget_key", # 위젯 상태를 제어할 key
     placeholder="전체"
 )
 
 version_options = df_original['version'].unique().tolist()
-selected_version = st.sidebar.multiselect(
-    "리뷰 작성 시점 (버전, 다중 선택 가능)", 
+st.sidebar.multiselect(
+    "리뷰 작성 시점 (버전, 다중 선택 가능)",
     options=version_options,
-    default=st.session_state.staged_filters["version"], # staged_filters 사용
+    key="version_widget_key",
     placeholder="전체"
 )
 
 review_count_options = df_original['review_count_bin'].cat.categories.tolist()
-selected_review_count = st.sidebar.multiselect(
-    "유저의 리뷰 활동성 (다중 선택 가능)", 
+st.sidebar.multiselect(
+    "유저의 리뷰 활동성 (다중 선택 가능)",
     options=review_count_options,
-    default=st.session_state.staged_filters["review_count"], # staged_filters 사용
+    key="review_count_widget_key",
     placeholder="전체"
 )
 
-# 3. 버튼 로직 수정
+# 4. 버튼에 콜백 함수 연결 (if문 블록 제거)
 col1, col2 = st.sidebar.columns(2)
-
 with col1:
-    if st.button("필터 적용"):
-        # '적용' 버튼을 누르면, 선택 중인 필터를 실제 적용 필터로 복사
-        st.session_state.staged_filters["playtime"] = selected_playtime
-        st.session_state.staged_filters["version"] = selected_version
-        st.session_state.staged_filters["review_count"] = selected_review_count
-        st.session_state.applied_filters = st.session_state.staged_filters.copy()
-        
-with col2:
-    if st.button("초기화"):
-        # '초기화' 버튼은 UI에 연결된 '선택 중인 필터'만 비움
-        # 실제 적용된 필터(applied_filters)는 건드리지 않음
-        st.session_state.staged_filters = {"playtime": [], "version": [], "review_count": []}
+    st.button("필터 적용", on_click=apply_filters)
 
-# 4. 데이터 필터링은 항상 '적용된 필터(applied_filters)'를 기준으로 수행
+with col2:
+    st.button("초기화", on_click=reset_filters)
+
+# 5. 데이터 필터링은 항상 '적용된 필터(applied_filters)'를 기준으로 수행
 df_filtered = df_original.copy()
-applied_filters = st.session_state.applied_filters # applied_filters 사용
+applied_filters = st.session_state.applied_filters
 
 if applied_filters["playtime"]:
     df_filtered = df_filtered[df_filtered['playtime_bin'].isin(applied_filters["playtime"])]
