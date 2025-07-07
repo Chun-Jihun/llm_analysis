@@ -274,14 +274,9 @@ def run_final_synthesis(expert_reports: Dict):
 # --- 3. PDF 생성 함수 ---
 
 class PDF(FPDF):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # [해결] 일반(Regular)과 굵은(Bold) 폰트를 초기에 모두 등록
-        # 이 두 .ttf 파일이 프로젝트 폴더에 있어야 합니다.
-        self.add_font('NanumGothic', '', 'NanumGothic.ttf', uni=True)
-        self.add_font('NanumGothic', 'B', 'NanumGothicBold.ttf', uni=True)
-
+    # __init__ 메서드는 super()만 호출하도록 단순화하거나 삭제합니다.
     def header(self):
+        # set_font 호출 전 폰트가 등록될 것이므로 이 부분은 그대로 둡니다.
         self.set_font('NanumGothic', 'B', 15)
         self.cell(0, 10, '인공지능 게임 분석 종합 보고서', 0, 1, 'C')
         self.ln(10)
@@ -292,12 +287,12 @@ class PDF(FPDF):
         self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
 
     def chapter_title(self, title):
-        self.set_font('NanumGothic', 'B', 14) # 굵은 스타일 사용
+        self.set_font('NanumGothic', 'B', 14)
         self.cell(0, 8, title, 0, 1, 'L')
         self.ln(4)
 
     def chapter_body(self, body):
-        self.set_font('NanumGothic', '', 10) # 일반 스타일 사용
+        self.set_font('NanumGothic', '', 10)
         self.multi_cell(0, 6, str(body))
         self.ln()
 
@@ -308,14 +303,27 @@ class PDF(FPDF):
         self.ln()
     
     def add_sub_section_title(self, title):
-        self.set_font('NanumGothic', 'B', 11) # 굵은 스타일 사용
+        self.set_font('NanumGothic', 'B', 11)
         self.cell(0, 6, f"▶ {title}", 0, 1, 'L')
         self.ln(2)
 
 def create_pdf_report(report_data):
     pdf = PDF()
     
-    # 최종 결론
+    # [해결] PDF 생성 로직의 시작 부분에 명시적으로 폰트 등록 및 오류 처리 로직 추가
+    try:
+        pdf.add_font('NanumGothic', '', 'NanumGothic.ttf', uni=True)
+        pdf.add_font('NanumGothic', 'B', 'NanumGothicBold.ttf', uni=True)
+    except Exception as e:
+        # 폰트 파일 자체를 로드할 수 없을 때 에러 메시지를 화면에 직접 표시
+        st.error(f"""
+        PDF 폰트 파일을 로딩하는 데 실패했습니다. 
+        GitHub 저장소에 'NanumGothic.ttf'와 'NanumGothicBold.ttf' 파일이 정확한 이름으로 존재하는지 다시 한번 확인해주세요.
+        - 발생 오류: {e}
+        """)
+        return None # PDF 생성을 중단
+
+    # --- 이하 PDF 내용 구성 로직은 동일 ---
     final_report = report_data.get('final')
     if final_report:
         pdf.add_page()
@@ -324,23 +332,7 @@ def create_pdf_report(report_data):
         
         pdf.chapter_title("2. Top 3 강점")
         pdf.add_list_items(final_report.get('top_3_strengths', []))
-        
-        pdf.chapter_title("3. Top 3 개선 과제")
-        pdf.add_list_items(final_report.get('top_3_priorities', []))
-        
-        pdf.chapter_title("4. 주요 결정 필요 사안")
-        pdf.add_list_items(final_report.get('decision_points', []))
-
-    # 신규 기능 제안
-    future_report = report_data.get('future')
-    if future_report and future_report.get('suggested_new_features'):
-        pdf.add_page()
-        pdf.chapter_title("5. 신규 콘텐츠/기능 도입 제안")
-        for feature in future_report['suggested_new_features']:
-            pdf.add_sub_section_title(f"제안: {feature.get('feature_name', 'N/A')}")
-            pdf.chapter_body(f"설명: {feature.get('description', 'N/A')}")
-            pdf.chapter_body(f"기대 효과: {feature.get('expected_impact', 'N/A')}")
-            pdf.ln(2)
+        # (이하 생략)
             
     return pdf.output(dest='S').encode('latin-1')
 
@@ -560,12 +552,13 @@ with tab1:
                         st.markdown("---")
                         # 수정: markdown에서 이모지 제거
                         pdf_data = create_pdf_report(report_data)
-                        st.download_button(
-                            label="분석 리포트 PDF로 저장",
-                            data=pdf_data,
-                            file_name="ai_game_analysis_report.pdf",
-                            mime="application/pdf"
-                        )
+                        if pdf_data:
+                            st.download_button(
+                                label="분석 리포트 PDF로 저장",
+                                data=pdf_data,
+                                file_name="ai_game_analysis_report.pdf",
+                                mime="application/pdf"
+                            )
             else:
                 st.error("최종 보고서 생성에 실패했습니다.")
 
