@@ -21,7 +21,7 @@ load_dotenv()
 
 # --- 1. 다중 전문가 LLM 및 Pydantic 모델 정의 ---
 
-# 1.1. 개별 전문가 LLM을 위한 Pydantic 모델
+# (KeywordCluster, QualitativeReport, StrategicPriority, StrengthAnalysis, UserSegment, SegmentationReport 모델은 이전과 동일)
 class KeywordCluster(BaseModel):
     theme: str = Field(description="리뷰에서 공통적으로 나타나는 주제 또는 테마 (예: 'UI/UX 불편함', '전투 밸런스 문제', '풍부한 스토리')")
     keywords: List[str] = Field(description="해당 테마를 대표하는 핵심 키워드 목록")
@@ -29,7 +29,6 @@ class KeywordCluster(BaseModel):
     review_examples: List[str] = Field(description="해당 테마를 잘 보여주는 대표적인 유저 리뷰 2~3개 요약")
 
 class QualitativeReport(BaseModel):
-    """정성 리뷰 분석 전문가의 보고서"""
     keyword_clusters: List[KeywordCluster] = Field(description="주요 키워드 클러스터링 및 감성 분석 결과")
     emerging_issues: List[str] = Field(description="최근들어 빈도가 증가하거나 새롭게 나타나는 불만 키워드 또는 주제")
 
@@ -40,7 +39,6 @@ class StrategicPriority(BaseModel):
     expected_roi: str = Field(description="개선 시 예상되는 ROI (Return on Investment) 또는 긍정적 효과 (예: '높음', '중간', '낮음')")
 
 class StrengthAnalysis(BaseModel):
-    """강점 및 개선 우선순위 분석 전문가의 보고서"""
     core_strengths: List[str] = Field(description="유저 충성도를 유지시키는 현재 게임의 핵심 강점 목록")
     strategic_priorities: List[StrategicPriority] = Field(description="개선 시 ROI가 높을 것으로 예상되는 문제점 및 해결 방안 목록")
 
@@ -50,7 +48,6 @@ class UserSegment(BaseModel):
     feedback_summary: str = Field(description="해당 세그먼트에서 주로 나타나는 긍정/부정 피드백 요약")
 
 class SegmentationReport(BaseModel):
-    """유저 세그먼트 분석 전문가의 보고서"""
     user_segments: List[UserSegment] = Field(description="리뷰 내용 기반으로 추론한 주요 유저 세그먼트별 분석")
 
 class FutureProposal(BaseModel):
@@ -58,19 +55,37 @@ class FutureProposal(BaseModel):
     proposal_type: str = Field(description="제안의 종류 (콘텐츠, 시스템 개선, BM, 전략 등)")
     description: str = Field(description="제안에 대한 구체적인 내용")
     rationale: str = Field(description="이 제안이 필요한 이유 및 기대효과")
+    
+# 1.1. 신규 기능/콘텐츠 제안을 위한 Pydantic 모델
+class SuggestedFeature(BaseModel):
+    feature_name: str = Field(description="제안하는 신규 기능 또는 콘텐츠의 이름")
+    description: str = Field(description="어떤 기능이며, 유저의 어떤 문제나 요구를 해결해주는지에 대한 구체적인 설명")
+    expected_impact: str = Field(description="도입 시 기대되는 긍정적 효과 (예: '신규 유저 안착률 증가', '기존 유저의 장기 플레이 동기 부여')")
 
 class FutureStrategyReport(BaseModel):
-    """향후 콘텐츠 및 전략 제안 전문가의 보고서"""
-    proposals: List[FutureProposal] = Field(description="게임의 미래를 위한 구체적인 제안 목록")
-    ab_test_suggestion: str = Field(description="데이터 기반 의사결정을 위해 실험해볼 만한 가설 및 A/B 테스트 아이디어 1가지")
+    """향후 콘텐츠 및 전략 제안 전문가의 보고서 (수정)"""
+    proposals: List[FutureProposal] = Field(description="게임의 미래를 위한 단기/중기/장기적 제안 목록")
+    suggested_new_features: List[SuggestedFeature] = Field(description="리뷰에서 암시된 유저의 unmet needs를 기반으로, 도입을 고려해볼 만한 구체적인 신규 기능 또는 콘텐츠 목록")
 
-# 1.2. 최종 보고서를 위한 Pydantic 모델
+# 1.2. 소수 의견 분석을 위한 신규 Pydantic 모델
+class MinorityOpinion(BaseModel):
+    opinion_summary: str = Field(description="소수 의견의 핵심 내용 요약")
+    potential_insight: str = Field(description="이 소수 의견이 왜 중요하며, 어떤 잠재적 가치(예: 새로운 성장 기회, 심각한 잠재적 리스크)를 담고 있는지에 대한 분석")
+    reviewer_quote: str = Field(description="해당 의견을 가장 잘 보여주는 리뷰 원문 인용 또는 요약")
+
+class MinorityReport(BaseModel):
+    """소수 의견 분석 전문가의 보고서"""
+    minority_opinions: List[MinorityOpinion] = Field(description="다수의 의견에 묻혔지만 중요한 인사이트를 담고 있는 소수 의견 목록")
+
+# 1.3. 최종 보고서를 위한 Pydantic 모델
 class FinalReport(BaseModel):
     """인공지능 분석가의 최종 종합 보고서"""
     executive_summary: str = Field(description="경영진 및 핵심 의사결정자를 위한 보고서의 핵심 요약. 현재 상황, 가장 시급한 과제, 그리고 가장 큰 기회를 요약합니다.")
     top_3_strengths: List[str] = Field(description="모든 분석을 종합했을 때, 우리 게임이 가진 가장 중요한 강점 3가지")
     top_3_priorities: List[str] = Field(description="다음 분기에 가장 먼저 해결해야 할 가장 중요한 과제 3가지")
     decision_points: List[str] = Field(description="경영진이나 PM이 시급히 결정을 내려야 할 주요 안건 목록 (예: '신규 콘텐츠 개발과 시스템 안정화 중 리소스 배분 결정')")
+
+
 
 # 1.3. LLM 호출 및 캐싱
 @st.cache_resource
@@ -175,29 +190,44 @@ future_strategy_prompt = ChatPromptTemplate.from_messages([
      """당신은 크리에이티브 디렉터이자 수석 게임 플래너입니다. 
 유저 피드백을 바탕으로 미래 콘텐츠, 시스템, 전략 방향성을 제시하는 역할입니다.
 
-**분석 목적:** 다음 시즌 또는 업데이트 기획에 반영할 수 있는 전략 아이디어를 제시하고, A/B 테스트로 실험 가능한 가설을 도출하세요.
+**분석 목적:** 다음 시즌 또는 업데이트 기획에 반영할 수 있는 전략 아이디어를 제시하세요.
 
 **분석 기준:**
 - `timeframe`: 반드시 제안이 단기/중기/장기 중 어디에 해당하는지 명시하세요.
+- `proposals`: 단기/중기/장기적 관점에서 게임이 나아가야 할 방향성을 제시하세요.
 - `proposal_type`: 콘텐츠, 시스템 개선, 비즈니스 모델(BM), 운영 전략 등 구체적인 분류
 - `description`: 실현 가능한 수준의 구체적인 아이디어 제시
 - `rationale`: 유저 리뷰에서 왜 이 제안이 도출되었는지 반드시 설명하고, 기대효과를 기술하세요.
-
-**A/B Test 제안 기준:**
-- 유저 행동에 영향을 줄 수 있는 변경점을 제시
-- 실험군/대조군 설계가 가능한 형태로 표현
+- `suggested_new_features`: 리뷰 내용에 암시된 유저의 숨겨진 니즈(Unmet Needs)를 포착하여, 즉시 도입을 검토해볼 만한 **구체적인 신규 기능 또는 콘텐츠**를 제안하세요. '무엇을', '왜', '어떤 효과를 기대하는지' 명확히 기술해야 합니다. 추상적인 방향성 제시는 지양합니다.
 
 반드시 아래 형식을 따르세요:
 {format_instructions}"""
     ),
     ("human",
-     """다음은 유저 리뷰 원문입니다. 이 데이터를 분석하여 위 기준에 따라 향후 전략 제안 보고서를 작성하세요.
+     """다음은 유저 리뷰 원문입니다. 이 데이터를 분석하여 위 기준에 따라 향후 전략 및 신규 기능/콘텐츠 제안 보고서를 작성하세요.
 
 --- 유저 리뷰 ---
 {reviews_text}"""
     )
 ])
 
+# 2.2. 소수 의견 분석가 프롬프트 신규 추가
+minority_opinion_prompt = ChatPromptTemplate.from_messages([
+    ("system",
+     """당신은 예리한 통찰력을 가진 데이터 분석가로, '숨은 보석 찾기'의 전문가입니다.
+당신의 임무는 다수의 목소리에 묻히기 쉬운 소수의견 중에서, 잠재적 가치가 매우 높은 의견을 발굴하는 것입니다.
+
+**분석 목적:** 주류 의견에서는 놓치고 있는 새로운 성장 기회나 심각한 잠재적 리스크를 조기에 발견하여, 남들보다 한발 앞선 의사결정을 지원합니다.
+
+**분석 기준:**
+- **독창성:** 일반적인 칭찬이나 불만(예: "재미있어요", "버그 많아요")은 철저히 무시하세요.
+- **논리성:** 소수 의견이지만, 그 주장에 대한 논리적인 근거나 설득력 있는 이유를 제시하는 리뷰를 찾아야 합니다.
+- **잠재력:** 해당 의견이 만약 제품에 반영되었을 때, 큰 파급효과(예: 새로운 유저층 유입, 코어 팬덤 강화, 심각한 문제 사전 예방)를 가져올 수 있는 것이어야 합니다.
+
+반드시 아래 형식 지침에 맞춰 JSON으로 출력하세요:
+{format_instructions}"""),
+    ("human", "다음 유저 리뷰에서 다수가 놓치고 있는 핵심적인 소수 의견을 찾아 분석 보고서를 작성하세요.\n\n--- 유저 리뷰 ---\n{reviews_text}")
+])
 
 # 1.5. LLM 호출 함수
 def run_expert_analysis(reviews_text: str, expert_prompt: ChatPromptTemplate, pydantic_model):
@@ -240,32 +270,124 @@ def run_final_synthesis(expert_reports: Dict):
         st.error(f"최종 보고서 종합 중 오류 발생: {e}")
         return None
 
+# --- 3. PDF 생성 함수 ---
+
+class PDF(FPDF):
+    def header(self):
+        # 폰트 파일이 프로젝트 폴더에 있어야 합니다.
+        self.add_font('NanumGothic', '', 'NanumGothic.ttf', uni=True)
+        self.set_font('NanumGothic', '', 15)
+        self.cell(0, 10, '인공지능 게임 분석 종합 보고서', 0, 1, 'C')
+        self.ln(10)
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Helvetica', 'I', 8)
+        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
+
+    def chapter_title(self, title):
+        self.set_font('NanumGothic', '', 14)
+        self.cell(0, 10, title, 0, 1, 'L')
+        self.ln(5)
+
+    def chapter_body(self, body):
+        self.set_font('NanumGothic', '', 10)
+        self.multi_cell(0, 6, body)
+        self.ln()
+
+    def add_report_section(self, title, content_dict):
+        self.add_page()
+        self.chapter_title(title)
+        for key, value in content_dict.items():
+            self.set_font('NanumGothic', '', 11)
+            self.cell(0, 8, f"■ {key}", 0, 1, 'L')
+            self.chapter_body(str(value))
+
+def create_pdf_report(report_data):
+    pdf = PDF()
+    pdf.add_font('NanumGothic', '', 'NanumGothic.ttf', uni=True)
+    
+    # 최종 결론 요약
+    final_report = report_data.get('final')
+    if final_report:
+        pdf.add_page()
+        pdf.chapter_title("최종 결론 (Executive Summary)")
+        pdf.chapter_body(final_report['executive_summary'])
+        
+        pdf.chapter_title("Top 3 강점")
+        for item in final_report['top_3_strengths']:
+            pdf.chapter_body(f"- {item}")
+            
+        pdf.chapter_title("Top 3 개선 과제")
+        for item in final_report['top_3_priorities']:
+            pdf.chapter_body(f"- {item}")
+            
+        pdf.chapter_title("주요 결정 필요 사안")
+        for item in final_report['decision_points']:
+            pdf.chapter_body(f"- {item}")
+
+    # (필요 시 다른 전문가 리포트도 PDF에 추가 가능)
+    
+    return pdf.output(dest='S').encode('latin-1')
+
 # --- 2. 데이터 로딩 및 전처리 ---
+# --- 4. 데이터 로딩 및 필터링 로직 ---
+
 @st.cache_data
-def load_data(file_path):
+def load_and_preprocess_data(file_path):
     df = pd.read_csv(file_path)
     df['timestamp_created'] = pd.to_datetime(df['timestamp_created'], unit='s')
     df.rename(columns={'review_text': '리뷰 내용', 'voted_up': '긍정 리뷰'}, inplace=True)
+
+    # --- 업데이트 버전 데이터 시뮬레이션 ---
+    update_dates = {
+        "v1.0 (출시)": "2023-01-01", "v1.1 (편의성 개선)": "2024-03-15",
+        "v1.2 (신규 캐릭터 추가)": "2024-05-20", "v1.3 (밸런스 패치)": "2024-06-30",
+    }
+    update_datetimes = {v: pd.to_datetime(d) for v, d in update_dates.items()}
+    def get_version(ts):
+        for v, d in reversed(list(update_datetimes.items())):
+            if ts >= d: return v
+        return "알 수 없음"
+    df['version'] = df['timestamp_created'].apply(get_version)
+    
+    # --- 플레이 시간 및 리뷰 수 구간(Bin) 생성 ---
+    max_playtime = int(df['playtime_forever_hours'].max())
+    df['playtime_bin'] = pd.cut(df['playtime_forever_hours'], bins=range(0, max_playtime + 6, 5), right=False, labels=[f'{i}-{i+5}시간' for i in range(0, max_playtime + 5, 5)])
+    
+    review_count_bins = [0, 1, 5, 10, 50, float('inf')]
+    review_count_labels = ['첫 리뷰어 (1개)', '가끔 작성 (2-5개)', '나름 활발 (6-10개)', '리뷰 전문가 (11-50개)', '매우 전문적 (51개 이상)']
+    df['review_count_bin'] = pd.cut(df['num_reviews_by_author'], bins=review_count_bins, right=True, labels=review_count_labels)
+    
     return df
 
-df_original = load_data('steam_reviews_3430470_korean_limit600_unique.csv')
+df_original = load_and_preprocess_data('steam_reviews_3430470_korean_limit600_unique.csv')
 
-# --- 3. 사이드바 필터 ---
-st.sidebar.header("대시보드 필터")
-playtime_range = st.sidebar.slider(
-    "플레이 시간(시간) 필터", 0, int(df_original['playtime_forever_hours'].max()),
-    (0, int(df_original['playtime_forever_hours'].quantile(0.95)))
-)
-# 수정: selectbox 옵션에서 이모지 제거
-review_type_map = {'모두': None, '긍정적 리뷰': True, '부정적 리뷰': False}
-selected_review_type = st.sidebar.selectbox("리뷰 유형 필터", list(review_type_map.keys()))
 
-df_filtered = df_original[
-    (df_original['playtime_forever_hours'] >= playtime_range[0]) &
-    (df_original['playtime_forever_hours'] <= playtime_range[1])
-]
-if review_type_map[selected_review_type] is not None:
-    df_filtered = df_filtered[df_filtered['긍정 리뷰'] == review_type_map[selected_review_type]]
+# --- 5. 사이드바 UI (필터 전면 개편) ---
+st.sidebar.header("상세 필터")
+
+# 5.1. 플레이 시간 구간 필터
+playtime_options = ['모두'] + df_original['playtime_bin'].cat.categories.tolist()
+selected_playtime = st.sidebar.selectbox("플레이 시간 구간", options=playtime_options)
+
+# 5.2. 업데이트 버전 필터
+version_options = ['모두'] + df_original['version'].unique().tolist()
+selected_version = st.sidebar.selectbox("리뷰 작성 시점 (버전)", options=version_options)
+
+# 5.3. 유저 리뷰 수 필터
+review_count_options = ['모두'] + df_original['review_count_bin'].cat.categories.tolist()
+selected_review_count = st.sidebar.selectbox("유저의 리뷰 활동성", options=review_count_options)
+
+
+# --- 필터 적용 로직 ---
+df_filtered = df_original.copy()
+if selected_playtime != '모두':
+    df_filtered = df_filtered[df_filtered['playtime_bin'] == selected_playtime]
+if selected_version != '모두':
+    df_filtered = df_filtered[df_filtered['version'] == selected_version]
+if selected_review_count != '모두':
+    df_filtered = df_filtered[df_filtered['review_count_bin'] == selected_review_count]
 
 
 # --- 4. 대시보드 UI 구성 ---
@@ -275,11 +397,13 @@ st.title("인공지능 게임 분석 대시보드")
 st.markdown(f"**분석 기간:** `{df_original['timestamp_created'].min().date()}` ~ `{df_original['timestamp_created'].max().date()}` | **총 리뷰:** `{len(df_original)}`개 | **필터된 리뷰:** `{len(df_filtered)}`개")
 
 # 수정: tabs에서 이모지 및 마크다운 제거
-tab1, tab2, tab3 = st.tabs([
-    "AI 전문가 종합 분석",
-    "데이터 기반 현황",
+tab1, tab2, tab3, tab4 = st.tabs([
+    "AI 전문가 종합 분석", 
+    "데이터 기반 현황", 
+    "소수 의견 심층 분석", 
     "원본 데이터 탐색"
-])
+    ])
+
 
 with tab1:
     # 수정: header에서 이모지 제거
@@ -290,6 +414,8 @@ with tab1:
     if st.button("AI 분석 실행하기", key="main_analysis_button"):
         if not df_filtered.empty:
             reviews_for_analysis = "\n".join(df_filtered.sort_values('timestamp_created', ascending=False)['리뷰 내용'].dropna().head(150))
+            st.session_state['reviews_for_analysis'] = reviews_for_analysis
+
             
             with st.spinner("AI가 분석을 시작합니다... (최대 1-2분 소요)"):
                 expert_reports = {}
@@ -298,6 +424,7 @@ with tab1:
                     expert_reports['qualitative'] = run_expert_analysis(
                         reviews_for_analysis, qualitative_prompt, QualitativeReport
                     )
+                    
                     st.write("정성 리뷰 분석 완료.")
                     status.update(label="텍스트 마이닝/UX 분석 완료!", state="complete", expanded=False)
 
@@ -323,86 +450,91 @@ with tab1:
                     status.update(label="미래 전략/콘텐츠 제안 완료!", state="complete", expanded=False)
 
                 if all(report is not None for report in expert_reports.values()):
-                    with st.spinner("인공지능 분석가가 모든 보고서를 취합하여 최종 결론을 도출합니다..."):
+                    with st.spinner("최종 보고서 종합 중..."):
                         final_report = run_final_synthesis(expert_reports)
-
-                    if final_report:
-                        # 수정: subheader에서 이모지 제거
-                        st.subheader("최종 결론 (Executive Summary)")
-                        st.info(f"**핵심 요약:**\n\n{final_report['executive_summary']}")
-                        
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            # 수정: markdown에서 이모지 제거
-                            st.markdown("#### Top 3 강점")
-                            for strength in final_report['top_3_strengths']:
-                                st.success(f"- {strength}")
-                        with col2:
-                            # 수정: markdown에서 이모지 제거
-                            st.markdown("#### Top 3 개선 과제")
-                            for priority in final_report['top_3_priorities']:
-                                st.warning(f"- {priority}")
-                        
-                        # 수정: markdown에서 이모지 제거
-                        st.markdown("#### 주요 결정 필요 사안 (Decision Points)")
-                        for dp in final_report['decision_points']:
-                            st.error(f"- {dp}")
-                        
-                        st.markdown("---")
-                        # 수정: header에서 이모지 제거
-                        st.header("각 분야 별 상세 분석 결과")
-
-                        with st.expander("1. 정성 리뷰 분석 보고서 (텍스트 마이닝)"):
-                            report = expert_reports['qualitative']
-                            if report:
-                                for cluster in report.get('keyword_clusters', []):
-                                    st.markdown(f"**- 테마:** {cluster.get('theme', 'N/A')} (**감성:** {cluster.get('sentiment', 'N/A')})")
-                                    st.caption(f"**주요 키워드:** {', '.join(cluster.get('keywords', []))}")
-                                    with st.container(border=True):
-                                        for example in cluster.get('review_examples', []):
-                                            st.write(f"> {example}")
-                                # 수정: markdown에서 이모지 제거
-                                st.markdown(f"**새로운 이슈:** {', '.join(report.get('emerging_issues', []))}")
-
-                        with st.expander("2. 강점 및 개선 우선순위 보고서 (전략 분석)"):
-                            report = expert_reports['strategic']
-                            if report:
-                                # 수정: markdown에서 이모지 제거
-                                st.markdown("#### 핵심 강점")
-                                for strength in report.get('core_strengths', []):
-                                    st.markdown(f"- {strength}")
-                                # 수정: markdown에서 이모지 제거
-                                st.markdown("#### 개선 우선순위")
-                                for priority in report.get('strategic_priorities', []):
-                                    st.markdown(f"**- 이슈:** {priority.get('issue', 'N/A')} (**예상 ROI:** {priority.get('expected_roi', 'N/A')})")
-                                    st.caption(f"**영향 분석:** {priority.get('impact_analysis', 'N/A')}")
-                                    st.caption(f"**개선 제안:** {priority.get('recommendation', 'N/A')}")
-                        
-                        with st.expander("3. 유저 세그먼트별 분석 보고서"):
-                            report = expert_reports['segmentation']
-                            if report:
-                                for segment in report.get('user_segments', []):
-                                    # 수정: markdown에서 이모지 제거
-                                    st.markdown(f"#### {segment.get('segment_name', 'N/A')}")
-                                    st.write(f"**특징:** {segment.get('characteristics', 'N/A')}")
-                                    st.write(f"**주요 피드백:** {segment.get('feedback_summary', 'N/A')}")
-
-                        with st.expander("4. 향후 콘텐츠 및 전략 제안 보고서"):
-                            report = expert_reports['future']
-                            if report:
-                                for proposal in report.get('proposals', []):
-                                    st.markdown(f"**- [{proposal.get('timeframe', 'N/A')}] {proposal.get('proposal_type', 'N/A')}:** {proposal.get('description', 'N/A')}")
-                                    st.caption(f"**제안 근거:** {proposal.get('rationale', 'N/A')}")
-                                st.markdown("---")
-                                # 수정: markdown에서 이모지 제거
-                                st.markdown("#### 가설 기반 실험 제안 (A/B Test)")
-                                st.info(f"{report.get('ab_test_suggestion', 'N/A')}")
-                    else:
-                        st.error("최종 보고서 생성에 실패했습니다.")
-                else:
-                    st.error("일부 리포트 생성에 실패하여 최종 분석을 진행할 수 없습니다.")
+                        st.session_state['analysis_report'] = {**expert_reports, 'final': final_report}
+                        st.session_state['analysis_complete'] = True
+            st.rerun()
         else:
             st.warning("분석할 리뷰가 없습니다. 필터를 조정해주세요.")
+    if st.session_state.get('analysis_complete', False):
+        report_data = st.session_state.get('analysis_report', {})
+        final_report = report_data.get('final')
+        if final_report:
+            # 수정: subheader에서 이모지 제거
+            st.subheader("최종 결론 (Executive Summary)")
+            st.info(f"**핵심 요약:**\n\n{final_report['executive_summary']}")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                # 수정: markdown에서 이모지 제거
+                st.markdown("#### Top 3 강점")
+                for strength in final_report['top_3_strengths']:
+                    st.success(f"- {strength}")
+            with col2:
+                # 수정: markdown에서 이모지 제거
+                st.markdown("#### Top 3 개선 과제")
+                for priority in final_report['top_3_priorities']:
+                    st.warning(f"- {priority}")
+            
+            # 수정: markdown에서 이모지 제거
+            st.markdown("#### 주요 결정 필요 사안 (Decision Points)")
+            for dp in final_report['decision_points']:
+                st.error(f"- {dp}")
+            
+            st.markdown("---")
+            # 수정: header에서 이모지 제거
+            st.header("각 분야 별 상세 분석 결과")
+
+            with st.expander("1. 정성 리뷰 분석 보고서 (텍스트 마이닝)"):
+                report = expert_reports['qualitative']
+                if report:
+                    for cluster in report.get('keyword_clusters', []):
+                        st.markdown(f"**- 테마:** {cluster.get('theme', 'N/A')} (**감성:** {cluster.get('sentiment', 'N/A')})")
+                        st.caption(f"**주요 키워드:** {', '.join(cluster.get('keywords', []))}")
+                        with st.container(border=True):
+                            for example in cluster.get('review_examples', []):
+                                st.write(f"> {example}")
+                    # 수정: markdown에서 이모지 제거
+                    st.markdown(f"**새로운 이슈:** {', '.join(report.get('emerging_issues', []))}")
+
+            with st.expander("2. 강점 및 개선 우선순위 보고서 (전략 분석)"):
+                report = expert_reports['strategic']
+                if report:
+                    # 수정: markdown에서 이모지 제거
+                    st.markdown("#### 핵심 강점")
+                    for strength in report.get('core_strengths', []):
+                        st.markdown(f"- {strength}")
+                    # 수정: markdown에서 이모지 제거
+                    st.markdown("#### 개선 우선순위")
+                    for priority in report.get('strategic_priorities', []):
+                        st.markdown(f"**- 이슈:** {priority.get('issue', 'N/A')} (**예상 ROI:** {priority.get('expected_roi', 'N/A')})")
+                        st.caption(f"**영향 분석:** {priority.get('impact_analysis', 'N/A')}")
+                        st.caption(f"**개선 제안:** {priority.get('recommendation', 'N/A')}")
+            
+            with st.expander("3. 유저 세그먼트별 분석 보고서"):
+                report = expert_reports['segmentation']
+                if report:
+                    for segment in report.get('user_segments', []):
+                        # 수정: markdown에서 이모지 제거
+                        st.markdown(f"#### {segment.get('segment_name', 'N/A')}")
+                        st.write(f"**특징:** {segment.get('characteristics', 'N/A')}")
+                        st.write(f"**주요 피드백:** {segment.get('feedback_summary', 'N/A')}")
+
+            with st.expander("4. 향후 콘텐츠 및 전략 제안 보고서"):
+                report = expert_reports['future']
+                if report:
+                    for proposal in report.get('proposals', []):
+                        st.markdown(f"**- [{proposal.get('timeframe', 'N/A')}] {proposal.get('proposal_type', 'N/A')}:** {proposal.get('description', 'N/A')}")
+                        st.caption(f"**제안 근거:** {proposal.get('rationale', 'N/A')}")
+                    st.markdown("---")
+                    # 수정: markdown에서 이모지 제거
+                    st.markdown("#### 가설 기반 실험 제안 (A/B Test)")
+                    st.info(f"{report.get('ab_test_suggestion', 'N/A')}")
+        else:
+            st.error("최종 보고서 생성에 실패했습니다.")
+    else:
+        st.error("일부 리포트 생성에 실패하여 최종 분석을 진행할 수 없습니다.")
 
 with tab2:
     # 수정: header에서 이모지 제거
@@ -462,6 +594,31 @@ with tab2:
         st.warning("상관관계 분석을 위해서는 2개 이상의 데이터가 필요합니다.")
 
 with tab3:
+    st.header("소수 의견 심층 분석")
+    st.markdown("다수의 목소리에 가려진 중요한 인사이트를 담은 소수 의견을 발굴합니다.")
+
+    if st.button("소수 의견 분석 실행하기", key="minority_analysis_button"):
+        if 'reviews_for_analysis' in st.session_state:
+            reviews = st.session_state['reviews_for_analysis']
+            with st.spinner("AI가 숨은 보석을 찾고 있습니다..."):
+                minority_report = run_expert_analysis(reviews, minority_opinion_prompt, MinorityReport)
+                st.session_state['minority_report'] = minority_report
+        else:
+            st.warning("'AI 전문가 종합 분석' 탭에서 분석을 먼저 실행하여 분석 대상을 설정해주세요.")
+
+    if 'minority_report' in st.session_state:
+        report = st.session_state['minority_report']
+        if report and report.get('minority_opinions'):
+            for opinion in report['minority_opinions']:
+                with st.container(border=True):
+                    st.subheader(f"핵심 요약: {opinion.get('opinion_summary', 'N/A')}")
+                    st.info(f"**잠재적 인사이트:** {opinion.get('potential_insight', 'N/A')}")
+                    st.caption("대표 리뷰:")
+                    st.write(f"> {opinion.get('reviewer_quote', 'N/A')}")
+        else:
+            st.info("분석 결과, 주목할 만한 소수 의견이 발견되지 않았습니다.")
+
+with tab4:
     # 수정: header에서 이모지 제거
     st.header("원본 데이터 탐색")
     st.markdown("필터링된 리뷰 원본 데이터를 직접 확인하고 정렬하거나 검색할 수 있습니다.")
