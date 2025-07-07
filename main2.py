@@ -407,7 +407,7 @@ def load_and_preprocess_data(file_path):
     # --- 업데이트 버전 데이터 시뮬레이션 ---
     update_dates = {
         "v1.0 (출시)": "2023-01-01", "v1.1 (편의성 개선)": "2024-03-15",
-        "v1.2 (신규 캐릭터 추가)": "2024-05-20", "v1.3": "2024-06-30",
+        "v1.2 (신규 캐릭터 추가)": "2024-05-20", "v1.3 (밸런스 패치)": "2024-06-30",
     }
     update_datetimes = {v: pd.to_datetime(d) for v, d in update_dates.items()}
     def get_version(ts):
@@ -416,23 +416,16 @@ def load_and_preprocess_data(file_path):
         return "알 수 없음"
     df['version'] = df['timestamp_created'].apply(get_version)
     
-    # --- 플레이 시간 및 리뷰 수 구간(Bin) 생성 (수정된 로직) ---
-    max_playtime = int(df['playtime_forever_hours'].max())
+    # --- [수정] 플레이 시간 및 리뷰 수 구간(Bin) 생성 로직 변경 ---
     
-    # [수정 1] 플레이 시간 구간 생성 로직을 더 명확하게 변경
-    if max_playtime > 0:
-        # 1. 구간의 경계를 명시적으로 생성
-        bin_edges = list(range(0, max_playtime + 6, 5))
-        # 2. 생성된 경계에 맞춰 정확한 개수의 라벨을 생성 (라벨 길이 = 경계 길이 - 1)
-        labels = [f'{bin_edges[i]} - {bin_edges[i+1] - 1}시간' for i in range(len(bin_edges) - 1)]
-        df['playtime_bin'] = pd.cut(df['playtime_forever_hours'], bins=bin_edges, right=False, labels=labels)
-    else:
-        df['playtime_bin'] = '0-4시간' # 플레이 시간이 0인 경우 대비
+    # 플레이 시간 구간: 10시간 단위, 50시간 이상 통합
+    playtime_bins = [0, 10, 20, 30, 40, 50, float('inf')]
+    playtime_labels = ['0-9시간', '10-19시간', '20-29시간', '30-39시간', '40-49시간', '50시간 이상']
+    df['playtime_bin'] = pd.cut(df['playtime_forever_hours'], bins=playtime_bins, right=False, labels=playtime_labels)
 
-    # [수정 2] 리뷰 작성 수 구간 생성 시 right=True 옵션으로 논리 오류 수정
-    review_count_bins = [0, 1, 5, 10, 50, float('inf')]
-    review_count_labels = ['첫 리뷰어 (1개)', '가끔 작성 (2-5개)', '나름 활발 (6-10개)', '활발 (11-50개)', '매우 활발 (51개 이상)']
-    # right=True는 (0, 1], (1, 5] 와 같은 구간을 의미하며, 이 경우가 의도에 맞음
+    # 리뷰 작성 수 구간: 30개 이상 통합
+    review_count_bins = [0, 1, 5, 10, 30, float('inf')]
+    review_count_labels = ['첫 리뷰어 (1개)', '가끔 작성 (2-5개)', '나름 활발 (6-10개)', '활발 (11-29개)', '리뷰 전문가 (30개 이상)']
     df['review_count_bin'] = pd.cut(df['num_reviews_by_author'], bins=review_count_bins, right=True, labels=review_count_labels)
     
     return df
@@ -444,27 +437,54 @@ df_original = load_and_preprocess_data('steam_reviews_3430470_korean_limit600_un
 # --- 5. 사이드바 UI (필터 전면 개편) ---
 st.sidebar.header("상세 필터")
 
-# 5.1. 플레이 시간 구간 필터
-playtime_options = ['모두'] + df_original['playtime_bin'].cat.categories.tolist()
-selected_playtime = st.sidebar.selectbox("플레이 시간 구간", options=playtime_options)
+# 1. session_state에 필터 기본값 초기화
+if 'applied_filters' not in st.session_state:
+    st.session_state.applied_filters = {
+        "playtime": [],
+        "version": [],
+        "review_count": []
+    }
 
-# 5.2. 업데이트 버전 필터
-version_options = ['모두'] + df_original['version'].unique().tolist()
-selected_version = st.sidebar.selectbox("리뷰 작성 시점 (버전)", options=version_options)
+# 2. 다중 선택 위젯 생성 (기본 선택값은 session_state에서 가져옴)
+playtime_options = df_original['playtime_bin'].cat.categories.tolist()
+selected_playtime = st.sidebar.multiselect(
+    "플레이 시간 구간 (다중 선택 가능)", 
+    options=playtime_options, 
+    default=st.session_state.applied_filters["playtime"]
+)
 
-# 5.3. 유저 리뷰 수 필터
-review_count_options = ['모두'] + df_original['review_count_bin'].cat.categories.tolist()
-selected_review_count = st.sidebar.selectbox("유저의 리뷰 활동성", options=review_count_options)
+version_options = df_original['version'].unique().tolist()
+selected_version = st.sidebar.multiselect(
+    "리뷰 작성 시점 (버전, 다중 선택 가능)", 
+    options=version_options,
+    default=st.session_state.applied_filters["version"]
+)
 
+review_count_options = df_original['review_count_bin'].cat.categories.tolist()
+selected_review_count = st.sidebar.multiselect(
+    "유저의 리뷰 활동성 (다중 선택 가능)", 
+    options=review_count_options,
+    default=st.session_state.applied_filters["review_count"]
+)
 
-# --- 필터 적용 로직 ---
+# 3. '필터 적용' 버튼을 누르면, 선택된 값들을 session_state에 저장
+if st.sidebar.button("필터 적용"):
+    st.session_state.applied_filters["playtime"] = selected_playtime
+    st.session_state.applied_filters["version"] = selected_version
+    st.session_state.applied_filters["review_count"] = selected_review_count
+    # st.rerun()을 호출하지 않아도, 버튼 클릭 시 자동으로 스크립트가 재실행됨
+
+# 4. 항상 session_state에 저장된 '적용된 필터'를 기준으로 데이터 필터링
 df_filtered = df_original.copy()
-if selected_playtime != '모두':
-    df_filtered = df_filtered[df_filtered['playtime_bin'] == selected_playtime]
-if selected_version != '모두':
-    df_filtered = df_filtered[df_filtered['version'] == selected_version]
-if selected_review_count != '모두':
-    df_filtered = df_filtered[df_filtered['review_count_bin'] == selected_review_count]
+applied_filters = st.session_state.applied_filters
+
+# 각 필터에 대해 선택된 값이 있을 경우에만 필터링 수행 (선택이 없으면 전체 데이터)
+if applied_filters["playtime"]:
+    df_filtered = df_filtered[df_filtered['playtime_bin'].isin(applied_filters["playtime"])]
+if applied_filters["version"]:
+    df_filtered = df_filtered[df_filtered['version'].isin(applied_filters["version"])]
+if applied_filters["review_count"]:
+    df_filtered = df_filtered[df_filtered['review_count_bin'].isin(applied_filters["review_count"])]
 
 
 # --- 4. 대시보드 UI 구성 ---
