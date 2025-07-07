@@ -274,24 +274,30 @@ def run_final_synthesis(expert_reports: Dict):
 # --- 3. PDF 생성 함수 ---
 
 class PDF(FPDF):
-    def header(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # [해결] 일반(Regular)과 굵은(Bold) 폰트를 초기에 모두 등록
+        # 이 두 .ttf 파일이 프로젝트 폴더에 있어야 합니다.
         self.add_font('NanumGothic', '', 'NanumGothic.ttf', uni=True)
+        self.add_font('NanumGothic', 'B', 'NanumGothicBold.ttf', uni=True)
+
+    def header(self):
         self.set_font('NanumGothic', 'B', 15)
         self.cell(0, 10, '인공지능 게임 분석 종합 보고서', 0, 1, 'C')
         self.ln(10)
 
     def footer(self):
         self.set_y(-15)
-        self.set_font('Helvetica', 'I', 8)
+        self.set_font('NanumGothic', '', 8)
         self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
 
     def chapter_title(self, title):
-        self.set_font('NanumGothic', 'B', 14)
+        self.set_font('NanumGothic', 'B', 14) # 굵은 스타일 사용
         self.cell(0, 8, title, 0, 1, 'L')
         self.ln(4)
 
     def chapter_body(self, body):
-        self.set_font('NanumGothic', '', 10)
+        self.set_font('NanumGothic', '', 10) # 일반 스타일 사용
         self.multi_cell(0, 6, str(body))
         self.ln()
 
@@ -302,24 +308,26 @@ class PDF(FPDF):
         self.ln()
     
     def add_sub_section_title(self, title):
-        self.set_font('NanumGothic', 'B', 11)
+        self.set_font('NanumGothic', 'B', 11) # 굵은 스타일 사용
         self.cell(0, 6, f"▶ {title}", 0, 1, 'L')
         self.ln(2)
 
 def create_pdf_report(report_data):
     pdf = PDF()
-    pdf.add_font('NanumGothic', '', 'NanumGothic.ttf', uni=True)
-    pdf.add_page()
     
     # 최종 결론
     final_report = report_data.get('final')
     if final_report:
+        pdf.add_page()
         pdf.chapter_title("1. 최종 결론 (Executive Summary)")
         pdf.chapter_body(final_report.get('executive_summary', 'N/A'))
+        
         pdf.chapter_title("2. Top 3 강점")
         pdf.add_list_items(final_report.get('top_3_strengths', []))
+        
         pdf.chapter_title("3. Top 3 개선 과제")
         pdf.add_list_items(final_report.get('top_3_priorities', []))
+        
         pdf.chapter_title("4. 주요 결정 필요 사안")
         pdf.add_list_items(final_report.get('decision_points', []))
 
