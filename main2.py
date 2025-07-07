@@ -215,7 +215,7 @@ future_strategy_prompt = ChatPromptTemplate.from_messages([
 # 2.2. 소수 의견 분석가 프롬프트 신규 추가
 minority_opinion_prompt = ChatPromptTemplate.from_messages([
     ("system",
-     """당신은 예리한 통찰력을 가진 데이터 분석가로, '숨은 보석 찾기'의 전문가입니다.
+     """당신은 예리한 통찰력을 가진 데이터 분석가로, '숨겨진 리뷰 찾기 및 분석'의 전문가입니다.
 당신의 임무는 다수의 목소리에 묻히기 쉬운 소수의견 중에서, 잠재적 가치가 매우 높은 의견을 발굴하는 것입니다.
 
 **분석 목적:** 주류 의견에서는 놓치고 있는 새로운 성장 기회나 심각한 잠재적 리스크를 조기에 발견하여, 남들보다 한발 앞선 의사결정을 지원합니다.
@@ -275,9 +275,8 @@ def run_final_synthesis(expert_reports: Dict):
 
 class PDF(FPDF):
     def header(self):
-        # 폰트 파일이 프로젝트 폴더에 있어야 합니다.
         self.add_font('NanumGothic', '', 'NanumGothic.ttf', uni=True)
-        self.set_font('NanumGothic', '', 15)
+        self.set_font('NanumGothic', 'B', 15)
         self.cell(0, 10, '인공지능 게임 분석 종합 보고서', 0, 1, 'C')
         self.ln(10)
 
@@ -287,48 +286,54 @@ class PDF(FPDF):
         self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
 
     def chapter_title(self, title):
-        self.set_font('NanumGothic', '', 14)
-        self.cell(0, 10, title, 0, 1, 'L')
-        self.ln(5)
+        self.set_font('NanumGothic', 'B', 14)
+        self.cell(0, 8, title, 0, 1, 'L')
+        self.ln(4)
 
     def chapter_body(self, body):
         self.set_font('NanumGothic', '', 10)
-        self.multi_cell(0, 6, body)
+        self.multi_cell(0, 6, str(body))
         self.ln()
 
-    def add_report_section(self, title, content_dict):
-        self.add_page()
-        self.chapter_title(title)
-        for key, value in content_dict.items():
-            self.set_font('NanumGothic', '', 11)
-            self.cell(0, 8, f"■ {key}", 0, 1, 'L')
-            self.chapter_body(str(value))
+    def add_list_items(self, items: list):
+        self.set_font('NanumGothic', '', 10)
+        for item in items:
+            self.multi_cell(0, 6, f"  - {item}")
+        self.ln()
+    
+    def add_sub_section_title(self, title):
+        self.set_font('NanumGothic', 'B', 11)
+        self.cell(0, 6, f"▶ {title}", 0, 1, 'L')
+        self.ln(2)
 
 def create_pdf_report(report_data):
     pdf = PDF()
     pdf.add_font('NanumGothic', '', 'NanumGothic.ttf', uni=True)
+    pdf.add_page()
     
-    # 최종 결론 요약
+    # 최종 결론
     final_report = report_data.get('final')
     if final_report:
-        pdf.add_page()
-        pdf.chapter_title("최종 결론 (Executive Summary)")
-        pdf.chapter_body(final_report['executive_summary'])
-        
-        pdf.chapter_title("Top 3 강점")
-        for item in final_report['top_3_strengths']:
-            pdf.chapter_body(f"- {item}")
-            
-        pdf.chapter_title("Top 3 개선 과제")
-        for item in final_report['top_3_priorities']:
-            pdf.chapter_body(f"- {item}")
-            
-        pdf.chapter_title("주요 결정 필요 사안")
-        for item in final_report['decision_points']:
-            pdf.chapter_body(f"- {item}")
+        pdf.chapter_title("1. 최종 결론 (Executive Summary)")
+        pdf.chapter_body(final_report.get('executive_summary', 'N/A'))
+        pdf.chapter_title("2. Top 3 강점")
+        pdf.add_list_items(final_report.get('top_3_strengths', []))
+        pdf.chapter_title("3. Top 3 개선 과제")
+        pdf.add_list_items(final_report.get('top_3_priorities', []))
+        pdf.chapter_title("4. 주요 결정 필요 사안")
+        pdf.add_list_items(final_report.get('decision_points', []))
 
-    # (필요 시 다른 전문가 리포트도 PDF에 추가 가능)
-    
+    # 신규 기능 제안
+    future_report = report_data.get('future')
+    if future_report and future_report.get('suggested_new_features'):
+        pdf.add_page()
+        pdf.chapter_title("5. 신규 콘텐츠/기능 도입 제안")
+        for feature in future_report['suggested_new_features']:
+            pdf.add_sub_section_title(f"제안: {feature.get('feature_name', 'N/A')}")
+            pdf.chapter_body(f"설명: {feature.get('description', 'N/A')}")
+            pdf.chapter_body(f"기대 효과: {feature.get('expected_impact', 'N/A')}")
+            pdf.ln(2)
+            
     return pdf.output(dest='S').encode('latin-1')
 
 # --- 2. 데이터 로딩 및 전처리 ---
@@ -471,19 +476,16 @@ with tab1:
                 else:
                     st.session_state['analysis_complete'] = False
                     st.error("일부 분석 리포트 생성에 실패했습니다.")
-            st.rerun()
         else:
             st.warning("분석할 리뷰가 없습니다. 필터를 조정해주세요.")
 
         if st.session_state.get('analysis_complete', False):
-            # 'expert_reports' 대신 'st.session_state'에서 데이터를 가져옵니다.
             report_data = st.session_state.get('analysis_report', {})
             final_report = report_data.get('final')
-
+            
             if final_report:
-                # 수정: subheader에서 이모지 제거
                 st.subheader("최종 결론 (Executive Summary)")
-                st.info(f"**핵심 요약:**\n\n{final_report['executive_summary']}")
+                st.info(final_report.get('executive_summary', '요약 정보 없음'))
                 
                 col1, col2 = st.columns(2)
                 with col1:
@@ -549,8 +551,13 @@ with tab1:
                             st.caption(f"**제안 근거:** {proposal.get('rationale', 'N/A')}")
                         st.markdown("---")
                         # 수정: markdown에서 이모지 제거
-                        st.markdown("#### 가설 기반 실험 제안 (A/B Test)")
-                        st.info(f"{report.get('ab_test_suggestion', 'N/A')}")
+                        pdf_data = create_pdf_report(report_data)
+                        st.download_button(
+                            label="분석 리포트 PDF로 저장",
+                            data=pdf_data,
+                            file_name="ai_game_analysis_report.pdf",
+                            mime="application/pdf"
+                        )
             else:
                 st.error("최종 보고서 생성에 실패했습니다.")
 
@@ -619,7 +626,7 @@ with tab3:
     if st.button("소수 의견 분석 실행하기", key="minority_analysis_button"):
         if 'reviews_for_analysis' in st.session_state:
             reviews = st.session_state['reviews_for_analysis']
-            with st.spinner("AI가 숨은 보석을 찾고 있습니다..."):
+            with st.spinner("AI가 소수의견을 종합하고 있습니다..."):
                 minority_report = run_expert_analysis(reviews, minority_opinion_prompt, MinorityReport)
                 st.session_state['minority_report'] = minority_report
         else:
