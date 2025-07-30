@@ -452,6 +452,8 @@ def reset_filters():
     st.session_state.review_count_widget_key = []
     # 데이터 필터링에 사용되는 상태도 함께 초기화
     st.session_state.applied_filters = {"playtime": [], "version": [], "review_count": []}
+    st.session_state["use_custom_filter"] = False
+    st.session_state.pop("df_filtered_custom", None)
 
 # 2. session_state에 필터 상태 초기화 (처음 한 번만 실행됨)
 if 'applied_filters' not in st.session_state:
@@ -497,17 +499,70 @@ with col1:
 with col2:
     st.button("초기화", on_click=reset_filters)
 
+st.sidebar.markdown("**커스텀 필터 (자연어)**")
+st.sidebar.text_input(
+    "예) 플레이 시간이 20시간 이상이고 부정 리뷰만 보기",
+    key="custom_filter_nl",
+    placeholder="자연어로 필터 조건을 입력하세요"
+)
+from langchain_core.messages import HumanMessage
+import re
+
+if st.sidebar.button("커스텀 필터 적용", key="apply_custom_filter"):
+    nl = st.session_state.custom_filter_nl.strip()
+    if nl:
+        with st.spinner("LLM에 필터 조건을 전달 중…"):
+            llm = get_llm()
+            prompt = (
+                f"DataFrame 컬럼: {list(df_original.columns)}\n"
+                f"조건(자연어): {nl}\n"
+                "위 조건에 맞춰 pandas boolean indexing 코드만 `df_filtered = df[...]` 형태로 출력해 줘."
+            )
+            # 2) generate() 호출로 변경
+            messages = [[HumanMessage(content=prompt)]]
+            result = llm.generate(messages)
+            code_snippet = result.generations[0][0].text.strip()
+            # ① 생성된 코드를 사이드바에 출력해서 디버깅
+        st.sidebar.text_area("✅ 생성된 필터 코드", code_snippet, height=120)
+
+        # ② ```나 python 태그 제거
+        clean = re.sub(r'```(?:python)?\s*|\s*```', '', code_snippet)
+        try:
+            # 1) df_original을 'df'로 바인딩
+            namespace = {"df": df_original.copy()}
+            exec(clean, namespace)
+            st.session_state["df_filtered_custom"] = namespace["df_filtered"]
+            st.session_state["use_custom_filter"] = True
+            st.success("커스텀 필터 적용 완료")
+        except Exception as e:
+            st.error(f"커스텀 필터 실행 오류: {e}")
+            st.sidebar.text_area("⚠️ 실행 시도한 클린 코드", clean, height=120)
+    else:
+        st.warning("필터 조건을 입력해주세요.")
+
 # 5. 데이터 필터링은 항상 '적용된 필터(applied_filters)'를 기준으로 수행
-df_filtered = df_original.copy()
-applied_filters = st.session_state.applied_filters
+# df_filtered = df_original.copy()
+# applied_filters = st.session_state.applied_filters
 
-if applied_filters["playtime"]:
-    df_filtered = df_filtered[df_filtered['playtime_bin'].isin(applied_filters["playtime"])]
-if applied_filters["version"]:
-    df_filtered = df_filtered[df_filtered['version'].isin(applied_filters["version"])]
-if applied_filters["review_count"]:
-    df_filtered = df_filtered[df_filtered['review_count_bin'].isin(applied_filters["review_count"])]
-
+# if applied_filters["playtime"]:
+#     df_filtered = df_filtered[df_filtered['playtime_bin'].isin(applied_filters["playtime"])]
+# if applied_filters["version"]:
+#     df_filtered = df_filtered[df_filtered['version'].isin(applied_filters["version"])]
+# if applied_filters["review_count"]:
+#     df_filtered = df_filtered[df_filtered['review_count_bin'].isin(applied_filters["review_count"])]
+if st.session_state.get("use_custom_filter", False):
+    # 커스텀 필터가 있으면 세션에 저장된 df_filtered_custom 사용
+    df_filtered = st.session_state["df_filtered_custom"]
+else:
+    # 기본 static 필터 로직
+    df_filtered = df_original.copy()
+    applied = st.session_state.applied_filters
+    if applied["playtime"]:
+        df_filtered = df_filtered[df_filtered['playtime_bin'].isin(applied["playtime"])]
+    if applied["version"]:
+        df_filtered = df_filtered[df_filtered['version'].isin(applied["version"])]
+    if applied["review_count"]:
+        df_filtered = df_filtered[df_filtered['review_count_bin'].isin(applied["review_count"])]
 
 # --- 4. 대시보드 UI 구성 ---
 
