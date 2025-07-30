@@ -20,5 +20,20 @@
 </p>
 
 스팀 리뷰에서 크롤링한 리뷰 데이터를 사용하여 분석한다.
+
+##  실행
+.env파일을 생성한 후, Google에서 발급한 API키를 입력한다.
+
+```
+GEMINI_API_KEY = XXXXXXXXXX
+```
+
+이후 터미널에 아래 명령어를 입력한다.
+
+```
+pip install requirements.txt
+streamlit run main2.py
+```
+
 ## 결과물
 https://llmanalysis-wymmhd8eeld8cdu3pngzns.streamlit.app
